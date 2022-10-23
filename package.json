@@ -1,0 +1,23 @@
+{
+  "name": "spark-store-sever",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "start": "node ./bin/www"
+  },
+  "dependencies": {
+    "axios": "^0.27.2",
+    "cookie-parser": "~1.4.4",
+    "deb-version-compare": "^1.2.1",
+    "debug": "~2.6.9",
+    "express": "~4.16.1",
+    "http-errors": "~1.6.3",
+    "jade": "~1.11.0",
+    "mongodb": "^4.10.0",
+    "morgan": "~1.9.1",
+    "uri-js": "^4.4.1"
+  },
+  "devDependencies": {
+    "prettier": "2.7.1"
+  }
+}
