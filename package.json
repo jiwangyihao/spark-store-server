@@ -1,5 +1,5 @@
 {
-  "name": "spark-store-sever",
+  "name": "spark-store-server",
   "version": "0.0.0",
   "private": true,
   "scripts": {
