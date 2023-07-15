@@ -6,12 +6,28 @@ const logger = require("morgan");
 const axios = require("axios").default;
 const URI = require("uri-js");
 const compare = require("deb-version-compare");
+const cors = require('cors');
 
 const app = express();
 
 app.use(logger("dev"));
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
+
+const allowOrigin = [
+  'http://localhost:9000',
+  'https://spark.jwyihao.top',
+  'https://www.spark-app.store'
+]
+app.use(cors({
+  origin: function (origin, callback) {
+    if (allowOrigin.indexOf(origin) !== -1) {
+      callback(null, true)
+    } else {
+      callback(new Error('Not allowed by CORS'))
+    }
+  }
+}));
 
 app.get("/", (req, res) => {
   res.send("这是基于 Express 和 MongoDB 制作的星火应用商店后端!");
