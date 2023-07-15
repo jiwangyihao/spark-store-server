@@ -10,24 +10,18 @@ const cors = require('cors');
 
 const app = express();
 
+app.use(cors({
+  origin: [
+    'http://localhost:9000',
+    'https://spark.jwyihao.top',
+    'https://www.spark-app.store'
+  ],
+  optionsSuccessStatus: 200
+}));
 app.use(logger("dev"));
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
-const allowOrigin = [
-  'http://localhost:9000',
-  'https://spark.jwyihao.top',
-  'https://www.spark-app.store'
-]
-app.use(cors({
-  origin: function (origin, callback) {
-    if (allowOrigin.indexOf(origin) !== -1) {
-      callback(null, true)
-    } else {
-      callback(new Error('Not allowed by CORS'))
-    }
-  }
-}));
 
 app.get("/", (req, res) => {
   res.send("这是基于 Express 和 MongoDB 制作的星火应用商店后端!");
