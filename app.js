@@ -1,3 +1,5 @@
+const jsdom = require("jsdom");
+const { JSDOM } = jsdom;
 const createError = require("http-errors");
 const express = require("express");
 const logger = require("morgan");
@@ -13,6 +15,54 @@ app.use(express.urlencoded({ extended: false }));
 
 app.get("/", (req, res) => {
   res.send("这是基于 Express 和 MongoDB 制作的星火应用商店后端!");
+});
+
+//从 Gitee Release 获取更新信息
+app.get("/latest", async (req, res) => {
+  const config={
+    repository:'https://gitee.com/deepin-community-store/spark-store'
+  }
+  const response = (await axios.get(`${config.repository}/releases/latest`)).data
+  const doc = new JSDOM(response, 'text/html').window.document
+
+  let details=[]
+  doc.querySelectorAll('.release-body .content .markdown-body li').forEach(el=>details.push(el.textContent))
+
+  const result = {
+    version:doc.querySelector('.release-meta .tag-name').textContent.trimStart().trimEnd(),
+    time:doc.querySelector('.release-meta .release-time').textContent.trimStart().trimEnd(),
+    details:details
+  }
+
+  res.json(result);
+});
+
+//从 Gitee Release 获取更新日志
+app.get("/history", async (req, res) => {
+  const config={
+    repository:'https://gitee.com/deepin-community-store/spark-store'
+  }
+  const response = (await axios.get(`${config.repository}/releases?page=${req.query["page"]}`)).data
+  const doc = new JSDOM(response, 'text/html').window.document
+
+  let updateHistory=[]
+
+  doc.querySelectorAll('.release-tag-item').forEach(item=>{
+    let details=[]
+    item.querySelectorAll('.release-body .content .markdown-body li').forEach(el=>details.push(el.textContent))
+
+    const result = {
+      version:item.querySelector('.release-meta .tag-name').textContent.trimStart().trimEnd(),
+      time:item.querySelector('.release-meta .release-time').textContent.trimStart().trimEnd(),
+      details:details
+    }
+
+    if (!item.querySelector('.pre-version')) {
+      updateHistory.push(result)
+    }
+  })
+
+  res.json(updateHistory);
 });
 
 //从旧源比较差异
@@ -327,7 +377,7 @@ app.use(function (req, res, next) {
 });
 
 // error handler
-app.use(function (err, req, res, next) {
+app.use(function (err, req, res) {
   res.status(err.status || 500);
   res.send("ERROR");
 });
