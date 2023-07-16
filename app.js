@@ -15,8 +15,8 @@ app.use(cors({
     'https://www.spark-app.store', //正式渠道
     'http://localhost:9000', //本地测试
     'https://spark.jwyihao.top', //Vercel 实时构建
-    'https://jiwangyihao.github.io/spark-store-qe', //GitHub Pages 实时构建
-    'https://deepin-community-store.gitee.io/spark-store-qe', //Gitee Pages 实时构建
+    'https://jiwangyihao.github.io', //GitHub Pages 实时构建
+    'https://deepin-community-store.gitee.io', //Gitee Pages 实时构建
   ],
   optionsSuccessStatus: 200
 }));
