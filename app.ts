@@ -1,84 +1,118 @@
-const jsdom = require("jsdom");
+import jsdom from "jsdom";
 const { JSDOM } = jsdom;
-const createError = require("http-errors");
-const express = require("express");
-const logger = require("morgan");
+import createError from "http-errors";
+import express from "express";
+import logger from "morgan";
 const axios = require("axios").default;
-const URI = require("uri-js");
-const compare = require("deb-version-compare");
-const cors = require('cors');
+import URI from "uri-js";
+import compare from "deb-version-compare";
+import cors from "cors";
 
 const app = express();
 
-app.use(cors({
-  origin: [
-    'https://www.spark-app.store', //正式渠道
-    'http://localhost:9000', //本地测试
-    'https://spark.jwyihao.top', //Vercel 实时构建
-    'https://jiwangyihao.github.io', //GitHub Pages 实时构建
-    'https://deepin-community-store.gitee.io', //Gitee Pages 实时构建
-  ],
-  optionsSuccessStatus: 200
-}));
+app.use(
+  cors({
+    origin: [
+      "https://www.spark-app.store", //正式渠道
+      "http://localhost:9000", //本地测试
+      "https://spark.jwyihao.top", //Vercel 实时构建
+      "https://jiwangyihao.github.io", //GitHub Pages 实时构建
+      "https://deepin-community-store.gitee.io", //Gitee Pages 实时构建
+    ],
+    optionsSuccessStatus: 200,
+  }),
+);
 app.use(logger("dev"));
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
-
-app.get("/", (req, res) => {
+app.get("/", (_req, res) => {
   res.send("这是基于 Express 和 MongoDB 制作的星火应用商店后端!");
 });
 
 //从 Gitee Release 获取更新信息
-app.get("/latest", async (req, res) => {
-  const config={
-    repository:'https://gitee.com/deepin-community-store/spark-store'
-  }
-  const response = (await axios.get(`${config.repository}/releases/latest`)).data
-  const doc = new JSDOM(response, 'text/html').window.document
+app.get("/latest", async (_req, res) => {
+  const config = {
+    repository: "https://gitee.com/deepin-community-store/spark-store",
+  };
+  const response = (await axios.get(`${config.repository}/releases/latest`))
+    .data;
+  const doc = new JSDOM(response).window.document;
 
-  let details=[]
-  doc.querySelectorAll('.release-body .content .markdown-body li').forEach(el=>details.push(el.textContent))
+  let details: string[] = [];
+  doc
+    .querySelectorAll(".release-body .content .markdown-body li")
+    .forEach((el) => details.push(<string>el.textContent));
 
   const result = {
-    version:doc.querySelector('.release-meta .tag-name').textContent.trimStart().trimEnd(),
-    time:doc.querySelector('.release-meta .release-time').textContent.trimStart().trimEnd(),
-    details:details
-  }
+    version: doc
+      .querySelector(".release-meta .tag-name")
+      ?.textContent?.trimStart()
+      .trimEnd(),
+    time: doc
+      .querySelector(".release-meta .release-time")
+      ?.textContent?.trimStart()
+      .trimEnd(),
+    details: details,
+  };
 
   res.json(result);
 });
 
+interface updateItem {
+  version: string | undefined;
+  time: string | undefined;
+  details: string[];
+}
+
 //从 Gitee Release 获取更新日志
 app.get("/history", async (req, res) => {
-  const config={
-    repository:'https://gitee.com/deepin-community-store/spark-store'
-  }
-  const response = (await axios.get(`${config.repository}/releases?page=${req.query["page"]}`)).data
-  const doc = new JSDOM(response, 'text/html').window.document
+  const config = {
+    repository: "https://gitee.com/deepin-community-store/spark-store",
+  };
+  const response = (
+    await axios.get(`${config.repository}/releases?page=${req.query["page"]}`)
+  ).data;
+  const doc = new JSDOM(response).window.document;
 
-  let updateHistory=[]
+  let updateHistory: updateItem[] = [];
 
-  doc.querySelectorAll('.release-tag-item').forEach(item=>{
-    let details=[]
-    item.querySelectorAll('.release-body .content .markdown-body li').forEach(el=>details.push(el.textContent))
+  doc.querySelectorAll(".release-tag-item").forEach((item) => {
+    let details: string[] = [];
+    item
+      .querySelectorAll(".release-body .content .markdown-body li")
+      .forEach((el) => details.push(<string>el.textContent));
 
     const result = {
-      version:item.querySelector('.release-meta .tag-name').textContent.trimStart().trimEnd(),
-      time:item.querySelector('.release-meta .release-time').textContent.trimStart().trimEnd(),
-      details:details
-    }
+      version: item
+        .querySelector(".release-meta .tag-name")
+        ?.textContent?.trimStart()
+        .trimEnd(),
+      time: item
+        .querySelector(".release-meta .release-time")
+        ?.textContent?.trimStart()
+        .trimEnd(),
+      details: details,
+    };
 
-    if (!item.querySelector('.pre-version')) {
-      updateHistory.push(result)
+    if (!item.querySelector(".pre-version")) {
+      updateHistory.push(result);
     }
-  })
+  });
 
-  res.json(updateHistory);
+  const returned = {
+    status: response.status,
+    isEnded:
+      doc.querySelector(".pagination>:last-child")?.textContent ===
+      req.query["page"],
+    data: updateHistory,
+  };
+
+  res.json(returned);
 });
 
 //从旧源比较差异
-app.get("/diffFromRepository", (req, res) => {
+app.get("/diffFromRepository", (_req, res) => {
   async function process() {
     //配置
     const configure = {
@@ -100,43 +134,43 @@ app.get("/diffFromRepository", (req, res) => {
     };
 
     //数据获取
-    let jsonReqs = [];
+    let jsonReqs: any[] = [];
     configure.sorts.forEach((sort) => {
       jsonReqs.push(
         axios
           .get(`${configure.repository}/store/${sort}/applist.json`)
-          .then((res) => {
+          .then((res: { data: any }) => {
             return {
               sort: sort,
               data: res.data,
             };
-          })
+          }),
       );
     });
 
     const jsonPromise = Promise.all(jsonReqs).then(async (res) => {
-      let jsonList = {};
-      let downReqs = [];
+      let jsonList: { [x: string]: any } = {};
+      let downReqs: any[] = [];
       res.forEach((sortData) => {
-        let sortList = {};
-        sortData.data.forEach((item) => {
+        let sortList: { [x: string]: any } = {};
+        sortData.data.forEach((item: { [x: string]: any }) => {
           sortList[item["Pkgname"]] = item;
           downReqs.push(
             axios
               .get(
                 URI.serialize(
                   URI.parse(
-                    `${configure.repository}/store/${sortData.sort}/${item["Pkgname"]}/download-times.txt`
-                  )
-                ).replaceAll(/\+|_plus_/gi, encodeURIComponent("+"))
+                    `${configure.repository}/store/${sortData.sort}/${item["Pkgname"]}/download-times.txt`,
+                  ),
+                ).replaceAll(/\+|_plus_/gi, encodeURIComponent("+")),
               )
-              .then((res) => {
+              .then((res: { data: string }) => {
                 return {
                   sort: sortData.sort,
                   package: item["Pkgname"],
                   data: parseInt(res.data),
                 };
-              })
+              }),
           );
         });
         jsonList[sortData.sort] = sortList;
@@ -150,13 +184,13 @@ app.get("/diffFromRepository", (req, res) => {
 
     const packagePromise = axios
       .get(`${configure.repository}/Packages`)
-      .then((res) => {
+      .then((res: { data: string }) => {
         let packageList = res.data.split("\n\n");
         const lastItem = packageList.pop();
         if (lastItem === "") {
           return packageList;
         } else {
-          packageList.push(lastItem);
+          packageList.push(<string>lastItem);
           return packageList;
         }
       });
@@ -164,13 +198,19 @@ app.get("/diffFromRepository", (req, res) => {
 
     //源数据合并去重
     const repoPromise = Promise.all([jsonPromise, packagePromise]).then(
-      ([jsonList, packageList]) => {
-        let appList = [];
-        let appListByPackage = {};
+      ([jsonList, packageList]: [
+        {
+          // noinspection JSUnusedLocalSymbols
+          [x: string]: any;
+        },
+        string[],
+      ]) => {
+        let appList: any[] = [];
+        let appListByPackage: { [x: string]: any } = {};
 
         //处理 Packages
-        packageList.forEach((item) => {
-          const application = {};
+        packageList.forEach((item: string) => {
+          const application: { [x: string]: any } = {};
 
           //按行解析 Packages
           let lastProperty = "";
@@ -186,9 +226,9 @@ app.get("/diffFromRepository", (req, res) => {
 
           //将维护者信息转为 Array
           if (application.hasOwnProperty("Maintainer")) {
-            let maintainerList = [];
+            let maintainerList: any[] = [];
             const maintainers = application.Maintainer.split(" ");
-            maintainers.forEach((item) => {
+            maintainers.forEach((item: string) => {
               if (item.match(/<.+>$/gi)) {
                 //此项包含邮箱信息
                 if (item.match(/^<.+>$/gi)) {
@@ -205,7 +245,7 @@ app.get("/diffFromRepository", (req, res) => {
                   //特殊情况处理（Deepin WINE Team / Spark WINE Team）
                   if (
                     maintainerList[maintainerList.length - 1].match(
-                      /Deepin|Spark/gi
+                      /Deepin|Spark/gi,
                     )
                   ) {
                     maintainerList[maintainerList.length - 1] += " " + item;
@@ -293,18 +333,19 @@ app.get("/diffFromRepository", (req, res) => {
                 application.Author = jsonPack.Author;
               }
               if (
-                !application.Maintainer.find((item) =>
-                  item.toString().match(jsonPack.Contributor)
+                !application.Maintainer.find(
+                  (item: { toString: () => string }) =>
+                    item.toString().match(jsonPack["Contributor"]),
                 )
               ) {
                 //贡献者与维护者不一样
-                application.Maintainer.push(jsonPack.Contributor);
+                application.Maintainer.push(jsonPack["Contributor"]);
               }
               if (
                 !application.hasOwnProperty("Homepage") &&
                 jsonPack.hasOwnProperty("Website")
               ) {
-                application.Homepage = jsonPack.Website;
+                application.Homepage = jsonPack["Website"];
               }
               if (jsonPack.hasOwnProperty("More")) {
                 application.More = jsonPack.More;
@@ -375,7 +416,7 @@ app.get("/diffFromRepository", (req, res) => {
           }
         });
         return appList;
-      }
+      },
     );
 
     return await repoPromise;
@@ -384,14 +425,14 @@ app.get("/diffFromRepository", (req, res) => {
 });
 
 // catch 404 and forward to error handler
-app.use(function (req, res, next) {
+app.use(function (_req, _res, next) {
   next(createError(404));
 });
 
 // error handler
-app.use(function (err, req, res) {
+app.use(function (err, _req, res) {
   res.status(err.status || 500);
   res.send("ERROR");
-});
+} as express.ErrorRequestHandler);
 
-module.exports = app;
+export default app;
