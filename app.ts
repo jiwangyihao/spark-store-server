@@ -4,9 +4,10 @@ import createError from "http-errors";
 import express from "express";
 import logger from "morgan";
 const axios = require("axios").default;
-import URI from "uri-js";
 import compare from "deb-version-compare";
 import cors from "cors";
+import { AxiosError } from "axios";
+//import { collection } from "api";
 
 const app = express();
 
@@ -130,7 +131,7 @@ app.get("/diffFromRepository", (_req, res) => {
         "tools",
         "video",
       ],
-      repository: "https://d.store.deepinos.org.cn",
+      repository: "https://core.shenmo.tech:23333",
     };
 
     //数据获取
@@ -144,46 +145,53 @@ app.get("/diffFromRepository", (_req, res) => {
               sort: sort,
               data: res.data,
             };
-          }),
+          })
+          .catch((e: AxiosError) => console.log(e.config.url)),
       );
     });
 
     const jsonPromise = Promise.all(jsonReqs).then(async (res) => {
-      let jsonList: { [x: string]: any } = {};
+      let jsonList: Map<string, Map<string, Map<string, any>>> = new Map();
       let downReqs: any[] = [];
       res.forEach((sortData) => {
-        let sortList: { [x: string]: any } = {};
-        sortData.data.forEach((item: { [x: string]: any }) => {
-          sortList[item["Pkgname"]] = item;
+        let sortList: Map<string, Map<string, any>> = new Map();
+        sortData.data.forEach((data: { [s: string]: unknown }) => {
+          const item = new Map(Object.entries(data));
+          sortList.set(<string>item.get("Pkgname"), item);
           downReqs.push(
             axios
               .get(
-                URI.serialize(
-                  URI.parse(
-                    `${configure.repository}/store/${sortData.sort}/${item["Pkgname"]}/download-times.txt`,
-                  ),
+                encodeURI(
+                  `${configure.repository}/store/${sortData.sort}/${item.get(
+                    "Pkgname",
+                  )}/download-times.txt`,
                 ).replaceAll(/\+|_plus_/gi, encodeURIComponent("+")),
               )
               .then((res: { data: string }) => {
                 return {
                   sort: sortData.sort,
-                  package: item["Pkgname"],
+                  package: item.get("Pkgname"),
                   data: parseInt(res.data),
                 };
-              }),
+              })
+              .catch((e: AxiosError) => console.log(e.config.url)),
           );
         });
-        jsonList[sortData.sort] = sortList;
+        jsonList.set(sortData.sort, sortList);
       });
       const downRes = await Promise.all(downReqs);
       downRes.forEach((res) => {
-        jsonList[res.sort][res.package].downTimes = res.data;
+        try {
+          jsonList.get(res.sort)?.get(res.package)?.set("downTimes", res.data);
+        } catch (e) {
+          console.log(e);
+        }
       });
       return jsonList;
     });
 
     const packagePromise = axios
-      .get(`${configure.repository}/Packages`)
+      .get(`${configure.repository}/store/Packages`)
       .then((res: { data: string }) => {
         let packageList = res.data.split("\n\n");
         const lastItem = packageList.pop();
@@ -193,41 +201,42 @@ app.get("/diffFromRepository", (_req, res) => {
           packageList.push(<string>lastItem);
           return packageList;
         }
-      });
+      })
+      .catch((e: AxiosError) => console.log(e.config.url));
     //dbPromise
 
     //源数据合并去重
     const repoPromise = Promise.all([jsonPromise, packagePromise]).then(
       ([jsonList, packageList]: [
-        {
-          // noinspection JSUnusedLocalSymbols
-          [x: string]: any;
-        },
+        Map<string, Map<string, Map<string, any>>>,
         string[],
       ]) => {
-        let appList: any[] = [];
-        let appListByPackage: { [x: string]: any } = {};
+        let appList: Map<string, any>[] | { [s: string]: any }[] = [];
+        let appListByPackage: Map<string, Map<string, any>> = new Map();
 
         //处理 Packages
         packageList.forEach((item: string) => {
-          const application: { [x: string]: any } = {};
+          const application: Map<string, any> = new Map();
 
           //按行解析 Packages
           let lastProperty = "";
           item.split("\n").forEach((line) => {
             if (line.match(/^[\w-]+: /gi)) {
               const lineArr = line.split(": ");
-              application[lineArr[0]] = lineArr[1];
+              application.set(lineArr[0], lineArr[1]);
               lastProperty = lineArr[0];
             } else {
-              application[lastProperty] += "\n" + line;
+              application.set(
+                lastProperty,
+                application.get(lastProperty) + "\n" + line,
+              );
             }
           });
 
           //将维护者信息转为 Array
-          if (application.hasOwnProperty("Maintainer")) {
+          if (application.has("Maintainer")) {
             let maintainerList: any[] = [];
-            const maintainers = application.Maintainer.split(" ");
+            const maintainers = application.get("Maintainer").split(" ");
             maintainers.forEach((item: string) => {
               if (item.match(/<.+>$/gi)) {
                 //此项包含邮箱信息
@@ -297,120 +306,158 @@ app.get("/diffFromRepository", (_req, res) => {
                 }
               }
             });
-            application.Maintainer = maintainerList;
+            application.set("Maintainer", maintainerList);
           }
 
           //将软件包大小转为数字
-          if (application.hasOwnProperty("Size")) {
-            application.Size = parseInt(application.Size.toString());
+          if (application.has("Size")) {
+            application.set("Size", parseInt(application.get("Size")));
           }
 
           //获取软件包分类
-          application.Sort = [
-            application["Filename"].match(/(?<=store\/)\w+?(?=\/)/gi)[0],
-          ];
+          application.set("Sort", [
+            application.get("Filename").match(/\w+?(?=\/)/gi)[0],
+          ]);
 
           if (
-            application["Filename"].match("depends") ||
-            !jsonList[application.Sort[0]].hasOwnProperty(application.Package)
+            application.get("Filename").match("depends") ||
+            !jsonList
+              .get(application.get("Sort")[0])
+              ?.has(application.get("Package"))
           ) {
             //标明是依赖包或 Json 源中不存在的包
-            application.Dependency = true;
-            application.History = true;
-            application.Package += `@${application.Version}`;
-            if (!appListByPackage.hasOwnProperty(application.Package)) {
+            application.set("Dependency", true);
+            application.set("History", true);
+            application.set(
+              "Package",
+              `${application.get("Package")}@${application.get("Version")}`,
+            );
+            if (!appListByPackage.has(application.get("Package"))) {
               appList.push(application);
-              appListByPackage[application.Package] = application;
+              appListByPackage.set(application.get("Package"), application);
             }
           } else {
             //从 Json 获取信息
-            const jsonPack = jsonList[application.Sort[0]][application.Package];
+            const jsonPack = jsonList
+              .get(application.get("Sort")[0])
+              ?.get(application.get("Package"));
 
             //合并信息函数
             function fillInformation() {
-              application.Name = jsonPack.Name;
-              if (jsonPack.hasOwnProperty("Author")) {
-                application.Author = jsonPack.Author;
+              application.set("Name", jsonPack?.get("Name"));
+              if (jsonPack?.has("Author")) {
+                application.set("Author", jsonPack.get("Author"));
               }
               if (
-                !application.Maintainer.find(
-                  (item: { toString: () => string }) =>
-                    item.toString().match(jsonPack["Contributor"]),
-                )
+                !application
+                  .get("Maintainer")
+                  .find((item: string) =>
+                    item.match(jsonPack?.get("Contributor")),
+                  )
               ) {
                 //贡献者与维护者不一样
-                application.Maintainer.push(jsonPack["Contributor"]);
+                application
+                  .get("Maintainer")
+                  .push(jsonPack?.get("Contributor"));
               }
-              if (
-                !application.hasOwnProperty("Homepage") &&
-                jsonPack.hasOwnProperty("Website")
-              ) {
-                application.Homepage = jsonPack["Website"];
+              if (!application.has("Homepage") && jsonPack?.has("Website")) {
+                application.set("Homepage", jsonPack.get("Website"));
               }
-              if (jsonPack.hasOwnProperty("More")) {
-                application.More = jsonPack.More;
+              if (jsonPack?.has("More")) {
+                application.set("More", jsonPack.get("More"));
               }
-              if (jsonPack.hasOwnProperty("Tags")) {
-                application.Tags = jsonPack.Tags.split(";");
+              if (jsonPack?.has("Tags")) {
+                application.set("Tags", jsonPack.get("Tags").split(";"));
               }
-              if (jsonPack.hasOwnProperty("img_urls")) {
-                application.img_urls = JSON.parse(jsonPack.img_urls);
+              if (jsonPack?.has("img_urls")) {
+                application.set(
+                  "img_urls",
+                  JSON.parse(jsonPack.get("img_urls")),
+                );
               }
-              if (jsonPack.hasOwnProperty("icons")) {
-                application.icons = jsonPack.icons;
+              if (jsonPack?.has("icons")) {
+                application.set("icons", jsonPack.get("icons"));
               }
             }
 
-            if (application.Version === jsonPack.Version) {
-              if (appListByPackage.hasOwnProperty(application.Package)) {
+            if (application.get("Version") === jsonPack?.get("Version")) {
+              if (appListByPackage.has(application.get("Package"))) {
                 //Json 源中重复的软件包
-                let appInList = appListByPackage[application.Package];
-                if (compare(appInList.Version, application.Version)) {
+                let appInList = appListByPackage.get(
+                  application.get("Package"),
+                );
+                if (
+                  compare(appInList?.get("Version"), application.get("Version"))
+                ) {
                   //List 中的软件包更新，把新包作为历史版本归档
-                  application.Package += `@${application.Version}`;
-                  application.History = true;
-                  appInList.Sort.push(application.Sort[0]);
-                  if (!appListByPackage.hasOwnProperty(application.Package)) {
+                  application.set(
+                    "Package",
+                    `${application.get("Package")}@${application.get(
+                      "Version",
+                    )}`,
+                  );
+                  application.set("History", true);
+                  appInList?.get("Sort").push(application.get("Sort")[0]);
+                  if (
+                    !appListByPackage.hasOwnProperty(application.get("Package"))
+                  ) {
                     appList.push(application);
-                    appListByPackage[application.Package] = application;
+                    appListByPackage.set(
+                      application.get("Package"),
+                      application,
+                    );
                   }
                 } else {
                   //新包更新，把 List 中的包当作历史版本归档
-                  appInList.Package += `@${appInList.Version}`;
-                  appInList.History = true;
+                  appInList?.set(
+                    "Package",
+                    `${appInList?.get("Package")}@${appInList?.get("Version")}`,
+                  );
+                  appInList?.set("History", true);
 
                   //清洗旧版本的多余信息
-                  delete appInList.Name;
-                  delete appInList.Author;
-                  delete appInList.More;
-                  delete appInList.Tags;
-                  delete appInList.img_urls;
-                  delete appInList.icons;
+                  appInList?.delete("Name");
+                  appInList?.delete("Author");
+                  appInList?.delete("More");
+                  appInList?.delete("Tags");
+                  appInList?.delete("img_urls");
+                  appInList?.delete("icons");
 
                   //为新包合并来自 Json 仓库的信息
                   fillInformation();
 
                   //补增分类信息
-                  application.Sort = application.Sort.concat(appInList.Sort);
+                  application.set(
+                    "Sort",
+                    application.get("Sort").concat(appInList?.get("Sort")),
+                  );
 
-                  appListByPackage[appInList.Package] = appInList;
-                  appListByPackage[application.Package] = application;
+                  appListByPackage.set(
+                    appInList?.get("Package"),
+                    <Map<string, any>>appInList,
+                  );
+                  appListByPackage.set(application.get("Package"), application);
                   appList.push(application);
                 }
               } else {
                 //非重复包（Json），为新包合并来自 Json 仓库的信息
-                application.Name = jsonPack.Name;
+                application.set("Name", jsonPack?.get("Name"));
                 fillInformation();
-                appListByPackage[application.Package] = application;
+                appListByPackage.set(application.get("Package"), application);
                 appList.push(application);
               }
             } else {
               //重复包（Packages）
-              application.History = true;
-              application.Package += `@${application.Version}`;
-              if (!appListByPackage.hasOwnProperty(application.Package)) {
+              application.set("History", true);
+              application.set(
+                "Package",
+                `${application.get("Package")}@${application.get("Version")}`,
+              );
+              if (
+                !appListByPackage.hasOwnProperty(application.get("Package"))
+              ) {
                 appList.push(application);
-                appListByPackage[application.Package] = application;
+                appListByPackage.set(application.get("Package"), application);
               }
             }
           }
@@ -421,7 +468,12 @@ app.get("/diffFromRepository", (_req, res) => {
 
     return await repoPromise;
   }
-  process().then((appList) => res.json(appList));
+  // noinspection JSUnusedAssignment
+  process().then((appList) =>
+    res.json(
+      appList.map((item) => (item = Object.fromEntries(item.entries()))),
+    ),
+  );
 });
 
 // catch 404 and forward to error handler
