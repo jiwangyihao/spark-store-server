@@ -7,7 +7,7 @@ const axios = require("axios").default;
 import compare from "deb-version-compare";
 import cors from "cors";
 import { AxiosError } from "axios";
-//import { collection } from "api";
+import collection from "./api";
 
 const app = express();
 
@@ -43,7 +43,7 @@ app.get("/latest", async (_req, res) => {
   let details: string[] = [];
   doc
     .querySelectorAll(".release-body .content .markdown-body li")
-    .forEach((el) => details.push(<string>el.textContent));
+    .forEach((el) => details.push(el.textContent!));
 
   const result = {
     version: doc
@@ -82,7 +82,7 @@ app.get("/history", async (req, res) => {
     let details: string[] = [];
     item
       .querySelectorAll(".release-body .content .markdown-body li")
-      .forEach((el) => details.push(<string>el.textContent));
+      .forEach((el) => details.push(el.textContent!));
 
     const result = {
       version: item
@@ -111,6 +111,20 @@ app.get("/history", async (req, res) => {
 
   res.json(returned);
 });
+
+interface task {
+  Package: string;
+  Author: string;
+  Reviewer?: string;
+  Type: string;
+  Status: string;
+  Content?: {
+    set?: {
+      [s: string]: any;
+    };
+    unset?: string[];
+  };
+}
 
 //从旧源比较差异
 app.get("/diffFromRepository", (_req, res) => {
@@ -156,8 +170,8 @@ app.get("/diffFromRepository", (_req, res) => {
       res.forEach((sortData) => {
         let sortList: Map<string, Map<string, any>> = new Map();
         sortData.data.forEach((data: { [s: string]: unknown }) => {
-          const item = new Map(Object.entries(data));
-          sortList.set(<string>item.get("Pkgname"), item);
+          const item: Map<string, any> = new Map(Object.entries(data));
+          sortList.set(item.get("Pkgname"), item);
           downReqs.push(
             axios
               .get(
@@ -198,7 +212,7 @@ app.get("/diffFromRepository", (_req, res) => {
         if (lastItem === "") {
           return packageList;
         } else {
-          packageList.push(<string>lastItem);
+          packageList.push(lastItem!);
           return packageList;
         }
       })
@@ -211,7 +225,7 @@ app.get("/diffFromRepository", (_req, res) => {
         Map<string, Map<string, Map<string, any>>>,
         string[],
       ]) => {
-        let appList: Map<string, any>[] | { [s: string]: any }[] = [];
+        let appList: Map<string, any>[] = [];
         let appListByPackage: Map<string, Map<string, any>> = new Map();
 
         //处理 Packages
@@ -466,14 +480,80 @@ app.get("/diffFromRepository", (_req, res) => {
       },
     );
 
-    return await repoPromise;
+    const dbPromise = collection.find().toArray();
+
+    const diffPromise = Promise.all([repoPromise, dbPromise]).then(
+      ([repoList, dbList]) => {
+        let taskList: task[] = [];
+        let repoListByPackage: Map<string, Map<string, any>> = new Map();
+        repoList.forEach((app) =>
+          repoListByPackage.set(app.get("Package"), app),
+        );
+        dbList.forEach((appInDb) => {
+          if (repoListByPackage.has(appInDb["Package"])) {
+            const appInRepo = repoListByPackage.get(appInDb["Package"]);
+            const set: { [s: string]: any } = {};
+            const unset: string[] = [];
+            for (const [key, value] of Object.entries(appInDb)) {
+              if (appInRepo?.has(key)) {
+                if (!appInRepo.get(key) === value) {
+                  set[key] = appInRepo.get(key);
+                }
+                appInRepo?.delete(key);
+              } else {
+                if (key !== "_id") {
+                  unset.push(key);
+                }
+              }
+            }
+            appInRepo?.forEach((value, key) => {
+              set[key] = value;
+            });
+            if (Object.entries(set).length > 0 && unset.length > 0) {
+              taskList.push({
+                Package: appInDb["Package"],
+                Author: "diff",
+                Type: "Update",
+                Status: "Pending",
+                Content: {
+                  set: set,
+                  unset: unset,
+                },
+              });
+            }
+          } else {
+            taskList.push({
+              Package: appInDb["Package"],
+              Author: "diff",
+              Type: "Delete",
+              Status: "Pending",
+            });
+            repoListByPackage.delete(appInDb["Package"]);
+          }
+        });
+
+        //在数据库中不存在的包（新增）
+        repoListByPackage.forEach((app) => {
+          taskList.push({
+            Package: app.get("Package"),
+            Author: "diff",
+            Type: "Add",
+            Status: "Pending",
+            Content: {
+              set: Object.fromEntries(app.entries()),
+            },
+          });
+        });
+        return taskList;
+      },
+    );
+
+    return await diffPromise;
   }
-  // noinspection JSUnusedAssignment
-  process().then((appList) =>
-    res.json(
-      appList.map((item) => (item = Object.fromEntries(item.entries()))),
-    ),
-  );
+  process().then(async (taskList) => {
+    res.json(taskList);
+    //res.json(        appList.map((item) => (Object.fromEntries(item.entries()))),      )
+  });
 });
 
 // catch 404 and forward to error handler

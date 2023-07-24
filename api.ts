@@ -1,7 +1,7 @@
-const { MongoClient } = require("mongodb");
+import { MongoClient } from "mongodb";
 // Replace the uri string with your connection string.
 const uri = process.env.MongoDB;
-const client = new MongoClient(uri);
+const client = new MongoClient(uri!);
 const database = client.db("applications");
 const collection = database.collection("applications");
 async function run() {
@@ -17,4 +17,4 @@ async function run() {
 }
 //run().catch(console.dir);
 
-export { collection };
+export default collection;
