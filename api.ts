@@ -3,7 +3,10 @@ import { MongoClient } from "mongodb";
 const uri = process.env.MongoDB;
 const client = new MongoClient(uri!);
 const database = client.db("applications");
-const collection = database.collection("applications");
+const appCol = database.collection("applications");
+const taskCol = database.collection("tasks");
+
+/*
 async function run() {
   try {
     // Query for a movie that has the title 'Back to the Future'
@@ -15,6 +18,8 @@ async function run() {
     await client.close();
   }
 }
+
+ */
 //run().catch(console.dir);
 
-export default collection;
+export { appCol, taskCol };

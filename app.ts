@@ -7,7 +7,10 @@ const axios = require("axios").default;
 import compare from "deb-version-compare";
 import cors from "cors";
 import { AxiosError } from "axios";
-import collection from "./api";
+import { appCol, taskCol } from "./api";
+import MD5 from "crypto-js/MD5";
+import { ObjectId } from "mongodb";
+import bodyParser from "body-parser";
 
 const app = express();
 
@@ -26,6 +29,7 @@ app.use(
 app.use(logger("dev"));
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
+app.use(bodyParser.urlencoded());
 
 app.get("/", (_req, res) => {
   res.send("这是基于 Express 和 MongoDB 制作的星火应用商店后端!");
@@ -115,7 +119,9 @@ app.get("/history", async (req, res) => {
 interface task {
   Package: string;
   Author: string;
+  CreateTime: Date;
   Reviewer?: string;
+  ReviewTime?: Date;
   Type: string;
   Status: string;
   Content?: {
@@ -480,10 +486,10 @@ app.get("/diffFromRepository", (_req, res) => {
       },
     );
 
-    const dbPromise = collection.find().toArray();
+    const dbPromise = appCol.find().toArray();
 
     const diffPromise = Promise.all([repoPromise, dbPromise]).then(
-      ([repoList, dbList]) => {
+      async ([repoList, dbList]) => {
         let taskList: task[] = [];
         let repoListByPackage: Map<string, Map<string, any>> = new Map();
         repoList.forEach((app) =>
@@ -513,6 +519,7 @@ app.get("/diffFromRepository", (_req, res) => {
               taskList.push({
                 Package: appInDb["Package"],
                 Author: "diff",
+                CreateTime: new Date(),
                 Type: "Update",
                 Status: "Pending",
                 Content: {
@@ -525,6 +532,7 @@ app.get("/diffFromRepository", (_req, res) => {
             taskList.push({
               Package: appInDb["Package"],
               Author: "diff",
+              CreateTime: new Date(),
               Type: "Delete",
               Status: "Pending",
             });
@@ -537,6 +545,7 @@ app.get("/diffFromRepository", (_req, res) => {
           taskList.push({
             Package: app.get("Package"),
             Author: "diff",
+            CreateTime: new Date(),
             Type: "Add",
             Status: "Pending",
             Content: {
@@ -544,6 +553,21 @@ app.get("/diffFromRepository", (_req, res) => {
             },
           });
         });
+
+        for (const task of taskList) {
+          await taskCol.updateMany(
+            {
+              Package: task.Package,
+            },
+            {
+              $set: {
+                Status: "Outdated",
+              },
+            },
+          );
+        }
+
+        await taskCol.insertMany(taskList);
         return taskList;
       },
     );
@@ -554,6 +578,110 @@ app.get("/diffFromRepository", (_req, res) => {
     res.json(taskList);
     //res.json(        appList.map((item) => (Object.fromEntries(item.entries()))),      )
   });
+});
+
+app.get("/getTaskList", (req, res) => {
+  interface taskQuery {
+    Author?: string;
+    Status?: string;
+  }
+
+  const query: taskQuery = {};
+  if (req.query["author"]) {
+    query.Author = <string>req.query["author"];
+  }
+  if (req.query["status"]) {
+    query.Status = <string>req.query["status"];
+  }
+  taskCol
+    .find(query)
+    .toArray()
+    .then((taskList) => res.json(taskList));
+});
+
+app.post("/approveTask", (req, res) => {
+  const process = async () => {
+    if (req.body["token"] !== MD5("sparkAdmin")) {
+      console.log(req.body);
+      console.log(new ObjectId(req.body["id"]));
+      console.log(new ObjectId("64bfc221cac984f7317fe059"));
+
+      const tasks = await taskCol
+        .find({
+          _id: new ObjectId(req.body["id"]),
+        })
+        .toArray();
+      if (tasks.length === 1) {
+        const task = tasks[0];
+
+        if (task["Status"] !== "Pending") {
+          res.json({
+            status: 200,
+            msg: "Task Status Error.",
+          });
+        }
+
+        switch (task["Type"]) {
+          case "Add":
+            await appCol.insertOne(task["Content"]["set"]);
+            break;
+          case "Update":
+            await appCol.updateOne(
+              {
+                Package: task["Package"],
+              },
+              {
+                $set: task["Content"]["set"],
+                $unset: task["Content"]["unset"],
+              },
+            );
+            break;
+          case "Delete":
+            await appCol.deleteOne({
+              Package: task["Package"],
+            });
+            break;
+          default:
+            await taskCol.updateOne(task, {
+              $set: {
+                Status: "Error",
+              },
+            });
+            res.json({
+              status: 200,
+              msg: "Task Type Error.",
+            });
+            break;
+        }
+
+        await taskCol.updateOne(task, {
+          $set: {
+            Status: "Approved",
+          },
+        });
+
+        res.json({
+          status: 200,
+          msg: "Succeeded.",
+          result: await appCol.findOne({
+            Package: task["Package"],
+          }),
+        });
+      } else {
+        res.json({
+          status: 200,
+          msg: "Task Not Found.",
+        });
+      }
+    } else {
+      res.json({
+        status: 200,
+        msg: "Not Authorised.",
+      });
+    }
+  };
+
+  process().then();
 });
 
 // catch 404 and forward to error handler

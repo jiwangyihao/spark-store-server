@@ -36,5 +36,8 @@
 - `/search` 搜索
   - `keyword` 关键词（按名称/详情）
 - `/getTaskList` 获取任务列表
-- `/approveTask` 批准任务
+  - `Author` 按提交者
+  - `Status` 按状态
+- `/approveTask` 批准任务 `POST`
   - `id` 按任务 ID
+  - `token` 用户凭据
