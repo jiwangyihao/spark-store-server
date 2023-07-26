@@ -8,7 +8,7 @@ import compare from "deb-version-compare";
 import cors from "cors";
 import { AxiosError } from "axios";
 import { appCol, taskCol } from "./api";
-import MD5 from "crypto-js/MD5";
+let MD5 = require("crypto-js/MD5");
 import { ObjectId } from "mongodb";
 import bodyParser from "body-parser";
 
@@ -616,7 +616,7 @@ app.post("/approveTask", (req, res) => {
 
         if (task["Status"] !== "Pending") {
           res.json({
-            status: 200,
+            status: 404,
             msg: "Task Status Error.",
           });
         }
@@ -648,7 +648,7 @@ app.post("/approveTask", (req, res) => {
               },
             });
             res.json({
-              status: 200,
+              status: 404,
               msg: "Task Type Error.",
             });
             break;
@@ -669,19 +669,24 @@ app.post("/approveTask", (req, res) => {
         });
       } else {
         res.json({
-          status: 200,
+          status: 404,
           msg: "Task Not Found.",
         });
       }
     } else {
       res.json({
-        status: 200,
+        status: 404,
         msg: "Not Authorised.",
       });
     }
   };
 
   process().then();
+});
+
+app.get("/robots.txt", (_req, res) => {
+  res.send(`User-agent: *
+    Disallow: /`);
 });
 
 // catch 404 and forward to error handler

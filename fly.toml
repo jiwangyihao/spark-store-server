@@ -1,0 +1,15 @@
+# fly.toml app configuration file generated for white-meadow-2047 on 2023-07-26T21:56:09+08:00
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
+
+app = "white-meadow-2047"
+primary_region = "hkg"
+
+[http_service]
+  internal_port = 3000
+  force_https = true
+  auto_stop_machines = true
+  auto_start_machines = true
+  min_machines_running = 0
+  processes = ["app"]
