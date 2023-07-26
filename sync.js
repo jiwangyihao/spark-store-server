@@ -1,5 +1,5 @@
 const axios = require("axios").default;
-import CryptoJS from "crypto-js";
+const CryptoJS = require("crypto-js");
 
 const config = {
   server: "https://server.jwyihao.top",

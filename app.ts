@@ -29,7 +29,7 @@ app.use(
 app.use(logger("dev"));
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
-app.use(bodyParser.urlencoded());
+app.use(bodyParser.urlencoded({ extended: false }));
 
 app.get("/", (_req, res) => {
   res.send("这是基于 Express 和 MongoDB 制作的星火应用商店后端!");
