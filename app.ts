@@ -8,7 +8,7 @@ import compare from "deb-version-compare";
 import cors from "cors";
 import { AxiosError } from "axios";
 import { appCol, taskCol } from "./api";
-let MD5 = require("crypto-js/MD5");
+import CryptoJS from "crypto-js";
 import { ObjectId } from "mongodb";
 import bodyParser from "body-parser";
 
@@ -601,7 +601,7 @@ app.get("/getTaskList", (req, res) => {
 
 app.post("/approveTask", (req, res) => {
   const process = async () => {
-    if (req.body["token"] !== MD5("sparkAdmin")) {
+    if (req.body["token"] !== CryptoJS.MD5("sparkAdmin")) {
       console.log(req.body);
       console.log(new ObjectId(req.body["id"]));
       console.log(new ObjectId("64bfc221cac984f7317fe059"));

@@ -1,5 +1,5 @@
 const axios = require("axios").default;
-const MD5 = require("crypto-js/MD5");
+import CryptoJS from "crypto-js";
 
 const config = {
   server: "https://server.jwyihao.top",
@@ -22,9 +22,9 @@ const procedure = async () => {
 
   for (const task of taskList.data) {
     const index = taskList.data.indexOf(task);
-    const result = await axios.post(`${config.server}/approveTask`, {
+    await axios.post(`${config.server}/approveTask`, {
       id: task._id,
-      token: MD5("sparkAdmin"),
+      token: CryptoJS.MD5("sparkAdmin"),
     });
     console.log(`已批准任务（${index + 1}/${taskList.data.length}）`);
   }
