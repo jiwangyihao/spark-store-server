@@ -542,16 +542,18 @@ app.get("/diffFromRepository", (_req, res) => {
 
         //在数据库中不存在的包（新增）
         repoListByPackage.forEach((app) => {
-          taskList.push({
-            Package: app.get("Package"),
-            Author: "diff",
-            CreateTime: new Date(),
-            Type: "Add",
-            Status: "Pending",
-            Content: {
-              set: Object.fromEntries(app.entries()),
-            },
-          });
+          if (app.has("Package")) {
+            taskList.push({
+              Package: app.get("Package"),
+              Author: "diff",
+              CreateTime: new Date(),
+              Type: "Add",
+              Status: "Pending",
+              Content: {
+                set: Object.fromEntries(app.entries()),
+              },
+            });
+          }
         });
 
         for (const task of taskList) {
