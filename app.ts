@@ -569,7 +569,9 @@ app.get("/diffFromRepository", (_req, res) => {
           );
         }
 
-        await taskCol.insertMany(taskList);
+        if (taskList.length > 0) {
+          await taskCol.insertMany(taskList);
+        }
         return taskList;
       },
     );
