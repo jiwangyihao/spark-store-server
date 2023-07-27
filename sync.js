@@ -2,7 +2,7 @@ const axios = require("axios").default;
 const CryptoJS = require("crypto-js");
 
 const config = {
-  server: "https://server.jwyihao.top",
+  server: "https://localhost:2345",
 };
 
 const procedure = async () => {
