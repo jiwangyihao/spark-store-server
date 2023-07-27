@@ -602,10 +602,6 @@ app.get("/getTaskList", (req, res) => {
 app.post("/approveTask", (req, res) => {
   const process = async () => {
     if (req.body["token"] !== CryptoJS.MD5("sparkAdmin")) {
-      console.log(req.body);
-      console.log(new ObjectId(req.body["id"]));
-      console.log(new ObjectId("64bfc221cac984f7317fe059"));
-
       const tasks = await taskCol
         .find({
           _id: new ObjectId(req.body["id"]),
@@ -613,6 +609,10 @@ app.post("/approveTask", (req, res) => {
         .toArray();
       if (tasks.length === 1) {
         const task = tasks[0];
+        const unset: { [s: string]: string } = {};
+        task["Content"]["unset"].forEach((field: string) => {
+          unset[field] = "";
+        });
 
         if (task["Status"] !== "Pending") {
           res.json({
@@ -632,7 +632,7 @@ app.post("/approveTask", (req, res) => {
               },
               {
                 $set: task["Content"]["set"],
-                $unset: task["Content"]["unset"],
+                $unset: unset,
               },
             );
             break;
