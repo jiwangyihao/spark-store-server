@@ -662,11 +662,16 @@ app.post("/approveTask", (req, res) => {
             break;
         }
 
-        await taskCol.updateOne(task, {
-          $set: {
-            Status: "Approved",
+        await taskCol.updateOne(
+          {
+            _id: new ObjectId(task._id),
           },
-        });
+          {
+            $set: {
+              Status: "Approved",
+            },
+          },
+        );
 
         res.json({
           status: 200,
