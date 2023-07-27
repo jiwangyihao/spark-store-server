@@ -610,9 +610,11 @@ app.post("/approveTask", (req, res) => {
       if (tasks.length === 1) {
         const task = tasks[0];
         const unset: { [s: string]: string } = {};
-        task["Content"]["unset"].forEach((field: string) => {
-          unset[field] = "";
-        });
+        if (task["Content"].hasOwnProperty("unset")) {
+          task["Content"]["unset"].forEach((field: string) => {
+            unset[field] = "";
+          });
+        }
 
         if (task["Status"] !== "Pending") {
           res.json({
