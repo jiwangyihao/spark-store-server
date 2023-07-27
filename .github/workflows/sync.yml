@@ -24,7 +24,7 @@ jobs:
       - name: Setup Server And Run Sync
         run: |
           yarn dev &
-          node sync.js
+          sleep 20 && node sync.js
         shell: bash
         env:
           MongoDB: ${{ secrets.MongoDB }}
