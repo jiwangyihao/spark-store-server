@@ -2,7 +2,7 @@ name: Sync From Repository
 
 on:
   schedule:
-    - cron: "0 18 0 * *"
+    - cron: "0 18 * * *"
   push:
     branches:
       - master
