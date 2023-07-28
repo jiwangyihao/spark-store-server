@@ -152,6 +152,13 @@ app.get("/diffFromRepository", (_req, res) => {
         "video",
       ],
       repository: "https://core.shenmo.tech:23333",
+      multiWordMaintainerList: [
+        "Deepin WINE Team",
+        "Spark WINE Team",
+        "Microsoft Edge for Linux Team",
+        "WPS Office Community Team",
+        "Debian Deepin Packaging Team",
+      ],
     };
 
     //数据获取
@@ -255,8 +262,19 @@ app.get("/diffFromRepository", (_req, res) => {
 
           //将维护者信息转为 Array
           if (application.has("Maintainer")) {
+            let multiWordMaintainer: Map<string, string> = new Map();
+            let Maintainers = application.get("Maintainer");
+
+            configure.multiWordMaintainerList.forEach((item) => {
+              multiWordMaintainer.set(CryptoJS.MD5(item).toString(), item);
+              Maintainers = Maintainers.replace(
+                item,
+                CryptoJS.MD5(item).toString(),
+              );
+            });
+
             let maintainerList: any[] = [];
-            const maintainers = application.get("Maintainer").split(" ");
+            const maintainers = Maintainers.split(" ");
             maintainers.forEach((item: string) => {
               if (item.match(/<.+>$/gi)) {
                 //此项包含邮箱信息
@@ -270,57 +288,10 @@ app.get("/diffFromRepository", (_req, res) => {
                 }
               } else {
                 //不是邮箱信息
-                if (item === "WINE") {
-                  //特殊情况处理（Deepin WINE Team / Spark WINE Team）
-                  if (
-                    maintainerList[maintainerList.length - 1].match(
-                      /Deepin|Spark/gi,
-                    )
-                  ) {
-                    maintainerList[maintainerList.length - 1] += " " + item;
-                  } else {
-                    maintainerList.push(item);
-                  }
-                } else if (item === "Edge") {
-                  //特殊情况处理（Microsoft Edge for Linux Team）
-                  if (
-                    maintainerList[maintainerList.length - 1].match("Microsoft")
-                  ) {
-                    maintainerList[maintainerList.length - 1] += " " + item;
-                  } else {
-                    maintainerList.push(item);
-                  }
-                } else if (item === "Office") {
-                  //特殊情况处理（WPS Office Community Team）
-                  if (maintainerList[maintainerList.length - 1].match("WPS")) {
-                    maintainerList[maintainerList.length - 1] += " " + item;
-                  } else {
-                    maintainerList.push(item);
-                  }
-                } else if (item === "Deepin") {
-                  //特殊情况处理（Debian Deepin Packaging Team）
-                  if (maintainerList[maintainerList.length - 1] === "Debian") {
-                    maintainerList[maintainerList.length - 1] += " " + item;
-                  } else {
-                    maintainerList.push(item);
-                  }
-                } else if (item === "Packaging") {
-                  //特殊情况处理（Debian Deepin Packaging Team）
-                  if (
-                    maintainerList[maintainerList.length - 1] ===
-                    "Debian Deepin"
-                  ) {
-                    maintainerList[maintainerList.length - 1] += " " + item;
-                  } else {
-                    maintainerList.push(item);
-                  }
-                } else if (
-                  item === "Team" ||
-                  item === "Linux" ||
-                  item === "for" ||
-                  item === "Community"
-                ) {
-                  maintainerList[maintainerList.length - 1] += " " + item;
+                if (multiWordMaintainer.has(CryptoJS.MD5(item).toString())) {
+                  maintainerList.push(
+                    multiWordMaintainer.get(CryptoJS.MD5(item).toString()),
+                  );
                 } else {
                   maintainerList.push(item);
                 }
@@ -695,6 +666,55 @@ app.post("/approveTask", (req, res) => {
   };
 
   process().then();
+});
+
+app.get("/getAppList", (req, res) => {
+  interface listQuery {
+    Sort?: string;
+    Tags?: string;
+  }
+
+  const query: listQuery = {};
+  if (req.query["sort"]) {
+    query.Sort = <string>req.query["sort"];
+  }
+  if (req.query["tag"]) {
+    query.Tags = <string>req.query["tag"];
+  }
+  appCol
+    .find(query, {
+      projection: {
+        Package: 1,
+        Name: 1,
+        More: 1,
+      },
+    })
+    .toArray()
+    .then((appList) => res.json(appList));
+});
+
+app.get("/getAppDetail", (req, res) => {
+  appCol
+    .findOne({ Package: req.query["package"] })
+    .then((appDetail) => res.json(appDetail));
+});
+
+app.get("/search", (req, res) => {
+  appCol
+    .find(
+      { $text: { $search: req.query["keyword"] } },
+      {
+        projection: {
+          Package: 1,
+          Name: 1,
+          More: 1,
+          score: { $meta: "textScore" },
+        },
+      },
+    )
+    .sort({ score: { $meta: "textScore" } })
+    .toArray()
+    .then((appDetail) => res.json(appDetail));
 });
 
 app.get("/robots.txt", (_req, res) => {
