@@ -9,6 +9,7 @@
     "build": "npm run build-ts"
   },
   "dependencies": {
+    "@elastic/search-application-client": "^8.9.0",
     "axios": "^0.27.2",
     "body-parser": "^1.20.2",
     "cookie-parser": "~1.4.4",
