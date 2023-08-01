@@ -28,3 +28,4 @@ jobs:
         shell: bash
         env:
           MongoDB: ${{ secrets.MongoDB }}
+          elastic: ${{ secrets.ELASTIC }}

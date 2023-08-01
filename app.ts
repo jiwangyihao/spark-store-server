@@ -7,10 +7,11 @@ const axios = require("axios").default;
 import compare from "deb-version-compare";
 import cors from "cors";
 import { AxiosError } from "axios";
-import { appCol, taskCol } from "./api";
+import { appCol, taskCol,elastic } from "./api";
 import CryptoJS from "crypto-js";
 import { ObjectId } from "mongodb";
 import bodyParser from "body-parser";
+import { it } from "node:test";
 
 const app = express();
 
@@ -700,21 +701,33 @@ app.get("/getAppDetail", (req, res) => {
 });
 
 app.get("/search", (req, res) => {
-  appCol
-    .find(
-      { $text: { $search: req.query["keyword"] } },
-      {
-        projection: {
-          Package: 1,
-          Name: 1,
-          More: 1,
-          score: { $meta: "textScore" },
-        },
+  elastic.search({
+    query: {
+      bool: {
+        should: [
+          {
+            match: {
+              Name: <string>req.query["keyword"],
+            },
+          },
+          {
+            match: {
+              More: <string>req.query["keyword"],
+            },
+          },
+        ],
       },
-    )
-    .sort({ score: { $meta: "textScore" } })
-    .toArray()
-    .then((appDetail) => res.json(appDetail));
+    },
+    filter_path: "took,hits.hits._id,hits.hits._score,hits.hits._source.Name,hits.hits._source.More",
+    size:1000
+  }).then((appList) => {
+    const results:Array<{Name:string,More:string,score:number}>=[]
+    appList.hits.hits.forEach(item=>results.push({
+      Name:(<{Name:string,More:string}>item._source).Name,
+      More:(<{Name:string,More:string}>item._source).More,
+      score:item._score!
+    }))
+    res.json(results)})
 });
 
 app.get("/robots.txt", (_req, res) => {
