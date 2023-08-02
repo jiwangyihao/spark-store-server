@@ -673,9 +673,12 @@ app.get("/getAppList", (req, res) => {
   interface listQuery {
     Sort?: string;
     Tags?: string;
+    History: boolean | undefined;
   }
 
-  const query: listQuery = {};
+  const query: listQuery = {
+    History: undefined,
+  };
   if (req.query["sort"]) {
     query.Sort = <string>req.query["sort"];
   }
@@ -718,6 +721,11 @@ app.get("/search", (req, res) => {
               },
             },
           ],
+          must: {
+            match: {
+              History: undefined,
+            },
+          },
         },
       },
       filter_path:
