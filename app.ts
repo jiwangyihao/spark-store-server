@@ -729,7 +729,7 @@ app.get("/search", (req, res) => {
         Package: string;
         Name: string;
         More: string;
-        Sort: string;
+        Sort: string[];
         score?: number;
       }
       const results: Array<appListItem> = [];
