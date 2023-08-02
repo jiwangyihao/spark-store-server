@@ -688,6 +688,7 @@ app.get("/getAppList", (req, res) => {
         Package: 1,
         Name: 1,
         More: 1,
+        Sort: 1,
       },
     })
     .toArray()
@@ -724,21 +725,20 @@ app.get("/search", (req, res) => {
       size: 1000,
     })
     .then((appList) => {
-      const results: Array<{
+      interface appListItem {
         Package: string;
         Name: string;
         More: string;
-        score: number;
-      }> = [];
+        Sort: string;
+        score?: number;
+      }
+      const results: Array<appListItem> = [];
       appList.hits.hits.forEach((item) =>
         results.push({
-          Package: (<{ Package: string; Name: string; More: string }>(
-            item._source
-          )).Package,
-          Name: (<{ Package: string; Name: string; More: string }>item._source)
-            .Name,
-          More: (<{ Package: string; Name: string; More: string }>item._source)
-            .More,
+          Package: (<appListItem>item._source).Package,
+          Name: (<appListItem>item._source).Name,
+          More: (<appListItem>item._source).More,
+          Sort: (<appListItem>item._source).Sort,
           score: item._score!,
         })
       );
