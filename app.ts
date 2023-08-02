@@ -7,7 +7,7 @@ const axios = require("axios").default;
 import compare from "deb-version-compare";
 import cors from "cors";
 import { AxiosError } from "axios";
-import { appCol, taskCol,elastic } from "./api";
+import { appCol, taskCol, elastic } from "./api";
 import CryptoJS from "crypto-js";
 import { ObjectId } from "mongodb";
 import bodyParser from "body-parser";
@@ -25,7 +25,7 @@ app.use(
       "https://deepin-community-store.gitee.io", //Gitee Pages 实时构建
     ],
     optionsSuccessStatus: 200,
-  }),
+  })
 );
 app.use(logger("dev"));
 app.use(express.json());
@@ -174,7 +174,7 @@ app.get("/diffFromRepository", (_req, res) => {
               data: res.data,
             };
           })
-          .catch((e: AxiosError) => console.log(e.config.url)),
+          .catch((e: AxiosError) => console.log(e.config.url))
       );
     });
 
@@ -191,9 +191,9 @@ app.get("/diffFromRepository", (_req, res) => {
               .get(
                 encodeURI(
                   `${configure.repository}/store/${sortData.sort}/${item.get(
-                    "Pkgname",
-                  )}/download-times.txt`,
-                ).replaceAll(/\+|_plus_/gi, encodeURIComponent("+")),
+                    "Pkgname"
+                  )}/download-times.txt`
+                ).replaceAll(/\+|_plus_/gi, encodeURIComponent("+"))
               )
               .then((res: { data: string }) => {
                 return {
@@ -202,7 +202,7 @@ app.get("/diffFromRepository", (_req, res) => {
                   data: parseInt(res.data),
                 };
               })
-              .catch((e: AxiosError) => console.log(e.config.url)),
+              .catch((e: AxiosError) => console.log(e.config.url))
           );
         });
         jsonList.set(sortData.sort, sortList);
@@ -256,7 +256,7 @@ app.get("/diffFromRepository", (_req, res) => {
             } else {
               application.set(
                 lastProperty,
-                application.get(lastProperty) + "\n" + line,
+                application.get(lastProperty) + "\n" + line
               );
             }
           });
@@ -270,7 +270,7 @@ app.get("/diffFromRepository", (_req, res) => {
               multiWordMaintainer.set(CryptoJS.MD5(item).toString(), item);
               Maintainers = Maintainers.replace(
                 item,
-                CryptoJS.MD5(item).toString(),
+                CryptoJS.MD5(item).toString()
               );
             });
 
@@ -291,7 +291,7 @@ app.get("/diffFromRepository", (_req, res) => {
                 //不是邮箱信息
                 if (multiWordMaintainer.has(CryptoJS.MD5(item).toString())) {
                   maintainerList.push(
-                    multiWordMaintainer.get(CryptoJS.MD5(item).toString()),
+                    multiWordMaintainer.get(CryptoJS.MD5(item).toString())
                   );
                 } else {
                   maintainerList.push(item);
@@ -322,7 +322,7 @@ app.get("/diffFromRepository", (_req, res) => {
             application.set("History", true);
             application.set(
               "Package",
-              `${application.get("Package")}@${application.get("Version")}`,
+              `${application.get("Package")}@${application.get("Version")}`
             );
             if (!appListByPackage.has(application.get("Package"))) {
               appList.push(application);
@@ -344,7 +344,7 @@ app.get("/diffFromRepository", (_req, res) => {
                 !application
                   .get("Maintainer")
                   .find((item: string) =>
-                    item.match(jsonPack?.get("Contributor")),
+                    item.match(jsonPack?.get("Contributor"))
                   )
               ) {
                 //贡献者与维护者不一样
@@ -364,7 +364,7 @@ app.get("/diffFromRepository", (_req, res) => {
               if (jsonPack?.has("img_urls")) {
                 application.set(
                   "img_urls",
-                  JSON.parse(jsonPack.get("img_urls")),
+                  JSON.parse(jsonPack.get("img_urls"))
                 );
               }
               if (jsonPack?.has("icons")) {
@@ -376,7 +376,7 @@ app.get("/diffFromRepository", (_req, res) => {
               if (appListByPackage.has(application.get("Package"))) {
                 //Json 源中重复的软件包
                 let appInList = appListByPackage.get(
-                  application.get("Package"),
+                  application.get("Package")
                 );
                 if (
                   compare(appInList?.get("Version"), application.get("Version"))
@@ -385,8 +385,8 @@ app.get("/diffFromRepository", (_req, res) => {
                   application.set(
                     "Package",
                     `${application.get("Package")}@${application.get(
-                      "Version",
-                    )}`,
+                      "Version"
+                    )}`
                   );
                   application.set("History", true);
                   appInList?.get("Sort").push(application.get("Sort")[0]);
@@ -396,14 +396,14 @@ app.get("/diffFromRepository", (_req, res) => {
                     appList.push(application);
                     appListByPackage.set(
                       application.get("Package"),
-                      application,
+                      application
                     );
                   }
                 } else {
                   //新包更新，把 List 中的包当作历史版本归档
                   appInList?.set(
                     "Package",
-                    `${appInList?.get("Package")}@${appInList?.get("Version")}`,
+                    `${appInList?.get("Package")}@${appInList?.get("Version")}`
                   );
                   appInList?.set("History", true);
 
@@ -421,12 +421,12 @@ app.get("/diffFromRepository", (_req, res) => {
                   //补增分类信息
                   application.set(
                     "Sort",
-                    application.get("Sort").concat(appInList?.get("Sort")),
+                    application.get("Sort").concat(appInList?.get("Sort"))
                   );
 
                   appListByPackage.set(
                     appInList?.get("Package"),
-                    <Map<string, any>>appInList,
+                    <Map<string, any>>appInList
                   );
                   appListByPackage.set(application.get("Package"), application);
                   appList.push(application);
@@ -443,7 +443,7 @@ app.get("/diffFromRepository", (_req, res) => {
               application.set("History", true);
               application.set(
                 "Package",
-                `${application.get("Package")}@${application.get("Version")}`,
+                `${application.get("Package")}@${application.get("Version")}`
               );
               if (
                 !appListByPackage.hasOwnProperty(application.get("Package"))
@@ -455,7 +455,7 @@ app.get("/diffFromRepository", (_req, res) => {
           }
         });
         return appList;
-      },
+      }
     );
 
     const dbPromise = appCol.find().toArray();
@@ -465,7 +465,7 @@ app.get("/diffFromRepository", (_req, res) => {
         let taskList: task[] = [];
         let repoListByPackage: Map<string, Map<string, any>> = new Map();
         repoList.forEach((app) =>
-          repoListByPackage.set(app.get("Package"), app),
+          repoListByPackage.set(app.get("Package"), app)
         );
         dbList.forEach((appInDb) => {
           if (repoListByPackage.has(appInDb["Package"])) {
@@ -537,7 +537,7 @@ app.get("/diffFromRepository", (_req, res) => {
               $set: {
                 Status: "Outdated",
               },
-            },
+            }
           );
         }
 
@@ -545,7 +545,7 @@ app.get("/diffFromRepository", (_req, res) => {
           await taskCol.insertMany(taskList);
         }
         return taskList;
-      },
+      }
     );
 
     return await diffPromise;
@@ -613,7 +613,7 @@ app.post("/approveTask", (req, res) => {
               {
                 $set: task["Content"]["set"],
                 $unset: unset,
-              },
+              }
             );
             break;
           case "Delete":
@@ -642,7 +642,7 @@ app.post("/approveTask", (req, res) => {
             $set: {
               Status: "Approved",
             },
-          },
+          }
         );
 
         res.json({
@@ -701,33 +701,49 @@ app.get("/getAppDetail", (req, res) => {
 });
 
 app.get("/search", (req, res) => {
-  elastic.search({
-    query: {
-      bool: {
-        should: [
-          {
-            match: {
-              Name: <string>req.query["keyword"],
+  elastic
+    .search({
+      query: {
+        bool: {
+          should: [
+            {
+              match: {
+                Name: <string>req.query["keyword"],
+              },
             },
-          },
-          {
-            match: {
-              More: <string>req.query["keyword"],
+            {
+              match: {
+                More: <string>req.query["keyword"],
+              },
             },
-          },
-        ],
+          ],
+        },
       },
-    },
-    filter_path: "took,hits.hits._id,hits.hits._score,hits.hits._source.Name,hits.hits._source.More",
-    size:1000
-  }).then((appList) => {
-    const results:Array<{Name:string,More:string,score:number}>=[]
-    appList.hits.hits.forEach(item=>results.push({
-      Name:(<{Name:string,More:string}>item._source).Name,
-      More:(<{Name:string,More:string}>item._source).More,
-      score:item._score!
-    }))
-    res.json(results)})
+      filter_path:
+        "took,hits.hits._id,hits.hits._score,hits.hits._source.Name,hits.hits._source.More",
+      size: 1000,
+    })
+    .then((appList) => {
+      const results: Array<{
+        Package: string;
+        Name: string;
+        More: string;
+        score: number;
+      }> = [];
+      appList.hits.hits.forEach((item) =>
+        results.push({
+          Package: (<{ Package: string; Name: string; More: string }>(
+            item._source
+          )).Package,
+          Name: (<{ Package: string; Name: string; More: string }>item._source)
+            .Name,
+          More: (<{ Package: string; Name: string; More: string }>item._source)
+            .More,
+          score: item._score!,
+        })
+      );
+      res.json(results);
+    });
 });
 
 app.get("/robots.txt", (_req, res) => {
