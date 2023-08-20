@@ -23,7 +23,7 @@ jobs:
 
       - name: Setup Server And Run Sync
         run: |
-          yarn dev &
+          yarn run start:dev &
           sleep 20 && node sync.js
         shell: bash
         env:
