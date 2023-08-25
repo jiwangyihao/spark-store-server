@@ -60,12 +60,12 @@ export class DevService {
 
   async update(packageName: string, update: any) {
     const updateValue = {};
-    if (update.hasOwnProperty('$set')) {
+    if (update.$set) {
       updateValue['$set'] = update.$set;
     }
-    if (update.hasOwnProperty('$unset')) {
-      updateValue['$set'] = update.$unset;
+    if (update.$unset) {
+      updateValue['$unset'] = update.$unset;
     }
-    return this.applicationCol.updateOne({ Package: packageName }, update);
+    return this.applicationCol.updateOne({ Package: packageName }, updateValue);
   }
 }
