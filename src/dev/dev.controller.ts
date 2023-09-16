@@ -37,7 +37,7 @@ export class DevController {
         'tools',
         'video',
       ],
-      repository: 'https://momen.d.store.deepinos.org.cn:19198',
+      repository: 'https://core.shenmo.tech:23333',
       multiWordMaintainerList: [
         'Alastair McKinstry',
         'Aleksandr Gornostal',
