@@ -66,6 +66,7 @@ export class DevService {
     if (update.$unset) {
       updateValue['$unset'] = update.$unset;
     }
+    //console.log(updateValue);
     return this.applicationCol.updateOne({ Package: packageName }, updateValue);
   }
 }

@@ -37,7 +37,7 @@ export class DevController {
         'tools',
         'video',
       ],
-      repository: 'https://core.shenmo.tech:23333',
+      repository: 'https://momen.d.store.deepinos.org.cn:19198',
       multiWordMaintainerList: [
         'Alastair McKinstry',
         'Aleksandr Gornostal',
@@ -183,7 +183,7 @@ export class DevController {
         'Zhipeng Zhao',
       ],
       salt: bcrypt.genSaltSync(1),
-      ignoreKeys: ['_id', '$__', '$isNew', '_doc'],
+      ignoreKeys: ['_id', '$__', '$isNew', '_doc', '__v'],
     };
 
     let multiWordMaintainer: Map<string, string> = new Map();
@@ -234,7 +234,47 @@ export class DevController {
                   data: parseInt(res.data),
                 };
               })
-              .catch((e: AxiosError) => console.log(e.config.url)),
+              .catch(async (e: AxiosError) => {
+                console.log(`Retry: ${e.config.url}`);
+                return await this.devService
+                  .getAxios()
+                  .get(
+                    encodeURI(
+                      `${configure.repository}/store/${
+                        sortData.sort
+                      }/${item.get('Pkgname')}/download-times.txt`,
+                    ).replaceAll(/\+|_plus_/gi, encodeURIComponent('+')),
+                  )
+                  .then((res: { data: string }) => {
+                    return {
+                      sort: sortData.sort,
+                      package: item.get('Pkgname'),
+                      data: parseInt(res.data),
+                    };
+                  })
+                  .catch(async (e: AxiosError) => {
+                    console.log(`Retry 2: ${e.config.url}`);
+                    return await this.devService
+                      .getAxios()
+                      .get(
+                        encodeURI(
+                          `${configure.repository}/store/${
+                            sortData.sort
+                          }/${item.get('Pkgname')}/download-times.txt`,
+                        ).replaceAll(/\+|_plus_/gi, encodeURIComponent('+')),
+                      )
+                      .then((res: { data: string }) => {
+                        return {
+                          sort: sortData.sort,
+                          package: item.get('Pkgname'),
+                          data: parseInt(res.data),
+                        };
+                      })
+                      .catch((e: AxiosError) => {
+                        console.log(`Retry failed: ${e.config.url}`);
+                      });
+                  });
+              }),
           );
         });
         jsonList.set(sortData.sort, sortList);
@@ -242,7 +282,10 @@ export class DevController {
       const downRes = await Promise.all(downReqs);
       downRes.forEach((res) => {
         try {
-          jsonList.get(res.sort)?.get(res.package)?.set('downTimes', res.data);
+          jsonList
+            .get(res.sort)
+            .get(res.package)
+            .set('downTimes', parseInt(res.data));
         } catch (e) {
           console.log(e);
         }
@@ -303,7 +346,7 @@ export class DevController {
             });
 
             let maintainerList: any[] = [];
-            const maintainers = Maintainers.split(' ');
+            const maintainers = Maintainers.split(/[ 、]/gi);
             maintainers.forEach((item: string) => {
               if (item.match(/<.+>$/gi)) {
                 //此项包含邮箱信息
@@ -325,14 +368,26 @@ export class DevController {
                 }
               } else {
                 //不是邮箱或网址信息
-                if (multiWordMaintainer.has(item)) {
-                  maintainerList.push(multiWordMaintainer.get(item));
-                } else {
-                  maintainerList.push(item);
-                }
+                multiWordMaintainer.forEach((v, k) => {
+                  item = item.replace(k, v);
+                });
+                maintainerList.push(item);
               }
             });
-            application.set('Maintainer', maintainerList);
+
+            application.set(
+              'Maintainer',
+              maintainerList.map((item) => {
+                multiWordMaintainer.forEach((v, k) => {
+                  item = item.replace(k, v);
+                });
+                return item;
+              }),
+            );
+
+            if (application.get('Package') === 'spark-microsoft-powerpoint') {
+              console.log(application.get('Maintainer'));
+            }
           }
 
           //将软件包大小转为数字
@@ -371,9 +426,10 @@ export class DevController {
             //合并信息函数
             function fillInformation() {
               application.set('Name', jsonPack?.get('Name'));
-              if (jsonPack?.has('Author')) {
+              if (jsonPack.has('Author')) {
                 application.set('Author', jsonPack.get('Author'));
               }
+              jsonPack.delete('Author');
               if (
                 !application
                   .get('Maintainer')
@@ -386,23 +442,37 @@ export class DevController {
                   .get('Maintainer')
                   .push(jsonPack?.get('Contributor'));
               }
+              jsonPack.delete('Contributor');
               if (!application.has('Homepage') && jsonPack?.has('Website')) {
                 application.set('Homepage', jsonPack.get('Website'));
               }
+              jsonPack.delete('Website');
               if (jsonPack?.has('More')) {
                 application.set('More', jsonPack.get('More'));
               }
+              jsonPack.delete('More');
               if (jsonPack?.has('Tags')) {
                 application.set('Tags', jsonPack.get('Tags').split(';'));
               }
+              jsonPack.delete('Tags');
               if (jsonPack?.has('img_urls')) {
                 application.set(
                   'img_urls',
                   JSON.parse(jsonPack.get('img_urls')),
                 );
               }
+              jsonPack.delete('img_urls');
               if (jsonPack?.has('icons')) {
                 application.set('icons', jsonPack.get('icons'));
+              }
+              jsonPack.delete('icons');
+
+              jsonPack.delete('Pkgname');
+
+              for (const [key, value] of jsonPack.entries()) {
+                if (!application.has(key)) {
+                  application.set(key, value);
+                }
               }
             }
 
@@ -507,7 +577,11 @@ export class DevController {
             const appInRepo = repoListByPackage.get(appInDb['Package']);
             const set: { [s: string]: any } = {};
             const unset: string[] = [];
-            //console.log(appInDb);
+
+            if (appInDb['Package'] === 'qtscrcpy') {
+              //console.log(appInDb);
+              //console.log(appInRepo);
+            }
 
             for (const [key, value] of Object.entries(appInDb.toObject())) {
               if (appInRepo?.has(key)) {
@@ -518,7 +592,10 @@ export class DevController {
                 }
                 appInRepo?.delete(key);
               } else {
-                if (!configure.ignoreKeys.includes(key)) {
+                if (
+                  !configure.ignoreKeys.includes(key) &&
+                  appInDb[key]?.length !== 0
+                ) {
                   unset.push(key);
                 }
               }
@@ -618,8 +695,9 @@ export class DevController {
       if (tasks.length === 1) {
         const task = tasks[0];
         const unset: { [s: string]: string } = {};
-        if (task.hasOwnProperty('Content')) {
-          if (task['Content'].hasOwnProperty('unset')) {
+
+        if (task['Content']) {
+          if (task['Content']['unset']) {
             task['Content']['unset'].forEach((field: string) => {
               unset[field] = '';
             });
