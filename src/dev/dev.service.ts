@@ -8,6 +8,7 @@ import {
 import { Task, TaskDocument } from '../schemas/task.schema';
 import { HttpService } from '@nestjs/axios';
 import { task } from '../interfaces/task.interface';
+import { AxiosError } from 'axios';
 
 @Injectable()
 export class DevService {
@@ -19,8 +20,30 @@ export class DevService {
     private taskCol: Model<TaskDocument>,
     private readonly httpService: HttpService,
   ) {}
+
   getAxios() {
     return this.httpService.axiosRef;
+  }
+
+  async get(
+    urlFn: () => string,
+    thenFn: (res: any) => void,
+    catchFn: (err: any) => void,
+    retry: number = 1,
+  ) {
+    const retryMax = 10;
+    return this.httpService.axiosRef
+      .get(urlFn())
+      .then(thenFn)
+      .catch(async (e: AxiosError) => {
+        console.log(`Retry ${retry}: ${e.config.url}`);
+        if (retry >= retryMax) {
+          console.log(`Retry failed: ${e.config.url}`);
+          catchFn(e);
+          return;
+        }
+        return await this.get(urlFn, thenFn, catchFn, retry + 1);
+      });
   }
 
   async findAllApplication(): Promise<Application[]> {

@@ -9,19 +9,21 @@ import {
 } from '@nestjs/common';
 import { DevService } from './dev.service';
 import * as bcrypt from 'bcrypt';
-import { AxiosError } from 'axios';
 import { Task } from '../schemas/task.schema';
 import { task } from '../interfaces/task.interface';
+
 let compare = require('deb-version-compare');
 
 @Controller('dev')
 export class DevController {
   constructor(private readonly devService: DevService) {}
+
   @Get('diffFromRepository')
   //从源拉取差异
   async diffFromRepository() {
     console.log('开始');
     //配置
+    // noinspection SpellCheckingInspection
     const configure = {
       sorts: [
         'chat',
@@ -37,7 +39,12 @@ export class DevController {
         'tools',
         'video',
       ],
-      repository: 'https://cdn.dl.uniartisan.com:8433',
+      repositoryList: [
+        'https://mirrors.sdu.edu.cn/spark-store',
+        'https://cdn.dl.uniartisan.com:8433',
+        'https://spark1.uniartisan.com:8443',
+        'https://momen.d.store.deepinos.org.cn:19198',
+      ],
       multiWordMaintainerList: [
         'Alastair McKinstry',
         'Aleksandr Gornostal',
@@ -188,6 +195,8 @@ export class DevController {
 
     let multiWordMaintainer: Map<string, string> = new Map();
 
+    let repository: number = 0;
+
     configure.multiWordMaintainerList.forEach((item) => {
       multiWordMaintainer.set(bcrypt.hashSync(item, configure.salt), item);
     });
@@ -196,16 +205,21 @@ export class DevController {
     let jsonReqs: any[] = [];
     configure.sorts.forEach((sort) => {
       jsonReqs.push(
-        this.devService
-          .getAxios()
-          .get(`${configure.repository}/store/${sort}/applist.json`)
-          .then((res: { data: any }) => {
+        this.devService.get(
+          () =>
+            `${
+              configure.repositoryList[
+                repository++ % configure.repositoryList.length
+              ]
+            }/store/${sort}/applist.json`,
+          (res: { data: any }) => {
             return {
               sort: sort,
               data: res.data,
             };
-          })
-          .catch((e: AxiosError) => console.log(e.config.url)),
+          },
+          () => {},
+        ),
       );
     });
 
@@ -218,63 +232,26 @@ export class DevController {
           const item: Map<string, any> = new Map(Object.entries(data));
           sortList.set(item.get('Pkgname'), item);
           downReqs.push(
-            this.devService
-              .getAxios()
-              .get(
+            this.devService.get(
+              () =>
                 encodeURI(
-                  `${configure.repository}/store/${sortData.sort}/${item.get(
+                  `${
+                    configure.repositoryList[
+                      repository++ % configure.repositoryList.length
+                    ]
+                  }/store/${sortData.sort}/${item.get(
                     'Pkgname',
                   )}/download-times.txt`,
                 ).replaceAll(/\+|_plus_/gi, encodeURIComponent('+')),
-              )
-              .then((res: { data: string }) => {
+              (res: { data: string }) => {
                 return {
                   sort: sortData.sort,
                   package: item.get('Pkgname'),
                   data: parseInt(res.data),
                 };
-              })
-              .catch(async (e: AxiosError) => {
-                console.log(`Retry: ${e.config.url}`);
-                return await this.devService
-                  .getAxios()
-                  .get(
-                    encodeURI(
-                      `${configure.repository}/store/${
-                        sortData.sort
-                      }/${item.get('Pkgname')}/download-times.txt`,
-                    ).replaceAll(/\+|_plus_/gi, encodeURIComponent('+')),
-                  )
-                  .then((res: { data: string }) => {
-                    return {
-                      sort: sortData.sort,
-                      package: item.get('Pkgname'),
-                      data: parseInt(res.data),
-                    };
-                  })
-                  .catch(async (e: AxiosError) => {
-                    console.log(`Retry 2: ${e.config.url}`);
-                    return await this.devService
-                      .getAxios()
-                      .get(
-                        encodeURI(
-                          `${configure.repository}/store/${
-                            sortData.sort
-                          }/${item.get('Pkgname')}/download-times.txt`,
-                        ).replaceAll(/\+|_plus_/gi, encodeURIComponent('+')),
-                      )
-                      .then((res: { data: string }) => {
-                        return {
-                          sort: sortData.sort,
-                          package: item.get('Pkgname'),
-                          data: parseInt(res.data),
-                        };
-                      })
-                      .catch((e: AxiosError) => {
-                        console.log(`Retry failed: ${e.config.url}`);
-                      });
-                  });
-              }),
+              },
+              () => {},
+            ),
           );
         });
         jsonList.set(sortData.sort, sortList);
@@ -293,10 +270,14 @@ export class DevController {
       return jsonList;
     });
 
-    const packagePromise = this.devService
-      .getAxios()
-      .get(`${configure.repository}/store/Packages`)
-      .then((res: { data: string }) => {
+    const packagePromise = this.devService.get(
+      () =>
+        `${
+          configure.repositoryList[
+            repository++ % configure.repositoryList.length
+          ]
+        }/store/Packages`,
+      (res: { data: string }) => {
         let packageList = res.data.split('\n\n');
         const lastItem = packageList.pop();
         if (lastItem === '') {
@@ -305,8 +286,9 @@ export class DevController {
           packageList.push(lastItem!);
           return packageList;
         }
-      })
-      .catch((e: AxiosError) => console.log(e.config.url));
+      },
+      () => {},
+    );
     //dbPromise
 
     //源数据合并去重
