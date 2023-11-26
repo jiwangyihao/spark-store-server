@@ -37,7 +37,7 @@ export class DevController {
         'tools',
         'video',
       ],
-      repository: 'https://momen.d.store.deepinos.org.cn:19198',
+      repository: 'https://cdn.dl.uniartisan.com:8433',
       multiWordMaintainerList: [
         'Alastair McKinstry',
         'Aleksandr Gornostal',
@@ -384,10 +384,6 @@ export class DevController {
                 return item;
               }),
             );
-
-            if (application.get('Package') === 'spark-microsoft-powerpoint') {
-              console.log(application.get('Maintainer'));
-            }
           }
 
           //将软件包大小转为数字

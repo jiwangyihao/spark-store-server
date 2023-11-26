@@ -11,7 +11,7 @@ export class InfoController {
   @Get('latest')
   async latest() {
     const config = {
-      repository: 'https://gitee.com/deepin-community-store/spark-store',
+      repository: 'https://gitee.com/spark-store-project/spark-store',
     };
     const response = (
       await this.infoService
@@ -40,7 +40,7 @@ export class InfoController {
   @Get('history')
   async history(@Query('page') page: string) {
     const config = {
-      repository: 'https://gitee.com/deepin-community-store/spark-store',
+      repository: 'https://gitee.com/spark-store-project/spark-store',
     };
     const response = (
       await this.infoService
