@@ -5,7 +5,7 @@ import { Application } from '../schemas/application.schema';
 @Controller('repo')
 export class RepoController {
   constructor(private readonly repoService: RepoService) {}
-
+/*
   @Get('getAppList')
   async getAppList(
     @Query('sort') sort: string,
@@ -39,4 +39,5 @@ export class RepoController {
   async search(@Query('keyword') keyword: string) {
     return this.repoService.search(keyword);
   }
+*/
 }
