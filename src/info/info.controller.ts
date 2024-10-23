@@ -51,11 +51,11 @@ export class InfoController {
 
     let updateHistory: updateItem[] = [];
 
-    doc.querySelectorAll('.release-tag-item').forEach((item: any) => {
+    doc.querySelectorAll('.release-tag-item').forEach((item: Element) => {
       let details: string[] = [];
       item
-        .querySelectorAll('.release-body .content .markdown-body li')
-        .forEach((el: any) => details.push(el.textContent!));
+        .querySelector('.release-body textarea.content').textContent?.split('\n')
+        .forEach((line: string) => details.push(line.replace(/[*-]\s/, '').trim()));
 
       const result = {
         version: item
@@ -66,7 +66,7 @@ export class InfoController {
           .querySelector('.release-meta .release-time')
           ?.textContent?.trimStart()
           .trimEnd(),
-        details: details,
+        details: details.filter((line) => line !== ''),
       };
 
       if (!item.querySelector('.pre-version')) {

@@ -8,14 +8,14 @@ import { InfoModule } from './info/info.module';
 
 @Module({
   imports: [
-    RepoModule,
-    MongooseModule.forRoot(
-      process.env['MongoDB'].replace('/?', '/applications?'), //更改 Collection
-      {
-        connectionName: 'applications',
-      },
-    ),
-    DevModule,
+    // RepoModule,
+    // MongooseModule.forRoot(
+    //   process.env['MongoDB'].replace('/?', '/applications?'), //更改 Collection
+    //   {
+    //     connectionName: 'applications',
+    //   },
+    // ),
+    // DevModule,
     InfoModule,
   ],
   controllers: [AppController],
