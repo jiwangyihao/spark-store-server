@@ -12,6 +12,6 @@ async function bootstrap() {
       'https://deepin-community-store.gitee.io', //Gitee Pages 实时构建
     ],
   });
-  await app.listen(3000);
+  await app.listen(3456);
 }
 bootstrap();
